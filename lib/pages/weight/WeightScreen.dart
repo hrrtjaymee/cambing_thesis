@@ -2,29 +2,14 @@ import 'package:cambing_thesis/core/theme/colors.dart';
 import 'package:cambing_thesis/pages/camera/cameraScreen.dart';
 import 'package:cambing_thesis/pages/history/historyScreen.dart';
 import 'package:cambing_thesis/pages/weight/weightModel.dart';
-import 'package:cambing_thesis/pages/weight/yolov8Model.dart';
+import 'package:cambing_thesis/pages/weight/yolov8_processor.dart';
+import 'package:cambing_thesis/pages/weight/resnet_preprocessor.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:cambing_thesis/core/theme/text_styles.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'dart:typed_data';
-
-// Extension for reshaping lists - needed for weight model
-extension ListReshapeExtension<T> on List<T> {
-  List<List<List<List<T>>>> reshape4D(int batch, int height, int width, int channels) {
-    return List.generate(batch, (b) => 
-      List.generate(height, (h) => 
-        List.generate(width, (w) => 
-          List.generate(channels, (c) => 
-            this[b * height * width * channels + h * width * channels + w * channels + c]
-          )
-        )
-      )
-    );
-  }
-}
 
 class Weightscreen extends StatefulWidget {
   const Weightscreen({
@@ -43,10 +28,14 @@ class Weightscreen extends StatefulWidget {
 }
 
 class _WeightScreenState extends State<Weightscreen> {
+  final YOLOv8Processor _yolov8Processor = YOLOv8Processor();
+  final ResNetPreprocessor _resnetPreprocessor = ResNetPreprocessor(
+    targetWidth: 224,
+    targetHeight: 224,
+  );
   GoatWeightModel? _weightModel;
-  final Yolov8 _yolov8Model = Yolov8();
+  
   final ImagePicker _picker = ImagePicker();
-  double? _predictedWeight;
   bool _isProcessing = false;
   String _weightDisplay = "---";
   String _currentStep = "";
@@ -58,132 +47,93 @@ class _WeightScreenState extends State<Weightscreen> {
   }
 
   Future<void> _initializeModels() async {
-    setState(() {
-      _isProcessing = true;
-      _weightDisplay = "Loading models...";
-      _currentStep = "Initializing...";
-    });
+    _updateStatus("Initializing models...", processing: true);
 
     try {
-      // Load both models
-      await _yolov8Model.loadModel();
-      _weightModel = await GoatWeightModel.create(modelPath: 'assets/models/test_model.tflite');
+      // Load YOLOv8 model
+      await _yolov8Processor.loadModel();
       
-      if (_weightModel != null && widget.imagePath != null) {
+      // Load weight prediction model
+      _weightModel = GoatWeightModel();
+      await _weightModel!.loadModel();
+
+      _updateStatus("Models ready", displayText: "Ready", processing: false);
+
+      // If image path provided, process it
+      if (widget.imagePath != null) {
         await _processImagePipeline();
-      } else if (_weightModel == null) {
-        setState(() {
-          _weightDisplay = "Model Error";
-          _currentStep = "Failed to load weight model";
-        });
       }
     } catch (e) {
       print('Error initializing models: $e');
-      setState(() {
-        _weightDisplay = "Error";
-        _currentStep = "Model initialization failed";
-      });
+      _updateStatus("Model loading failed", displayText: "Error", processing: false);
     }
   }
 
+  /// Complete ML Pipeline:
+  /// 1. Load image from gallery/camera
+  /// 2. YOLOv8 segmentation with red overlay
+  /// 3. ResNet preprocessing
+  /// 4. Weight prediction
   Future<void> _processImagePipeline() async {
     if (widget.imagePath == null || _weightModel == null) return;
-    
-    setState(() {
-      _isProcessing = true;
-      _weightDisplay = "Processing...";
-      _currentStep = "Starting pipeline...";
-    });
+
+    _updateStatus("Starting pipeline...", processing: true);
 
     try {
       // Step 1: Load original image
-      setState(() {
-        _currentStep = "Loading image...";
-      });
-      
-      final imageFile = File(widget.imagePath!);
-      final bytes = await imageFile.readAsBytes();
-      final originalImage = img.decodeImage(bytes);
-      
+      _updateStatus("Loading image...");
+      final imageBytes = await File(widget.imagePath!).readAsBytes();
+      final originalImage = img.decodeImage(imageBytes);
+
       if (originalImage == null) {
         throw Exception('Failed to decode image');
       }
 
-      // Step 2: Run YOLOv8 segmentation
-      setState(() {
-        _currentStep = "Detecting and segmenting goat...";
-      });
-      
-      final segmentedImage = await _yolov8Model.runInference(originalImage);
-      
+      // Step 2: YOLOv8 segmentation with red overlay
+      _updateStatus("Running YOLOv8 segmentation...");
+      final segmentedImage = await _yolov8Processor.processImage(originalImage);
+
       if (segmentedImage == null) {
-        setState(() {
-          _weightDisplay = "No Goat Found";
-          _currentStep = "No goat detected in image";
-        });
+        _updateStatus("No goat detected", displayText: "No Goat Found", processing: false);
         return;
       }
 
-      // Step 3: Preprocess segmented image for weight model
-      setState(() {
-        _currentStep = "Preprocessing for weight prediction...";
-      });
-      
-      final preprocessedData = _preprocessImageForWeightModel(segmentedImage);
-      
-      // Step 4: Predict weight using preprocessed data
-      setState(() {
-        _currentStep = "Predicting weight...";
-      });
-      
+      // Step 3: Preprocess for ResNet/weight model
+      _updateStatus("Preprocessing for weight prediction...");
+      final preprocessedData = _resnetPreprocessor.preprocess(segmentedImage);
+
+      // Step 4: Predict weight
+      _updateStatus("Predicting weight...");
       final weight = _weightModel!.predict(preprocessedData, [1, 224, 224, 3]);
-      
-      setState(() {
-        _predictedWeight = weight;
-        _weightDisplay = weight.toStringAsFixed(1);
-        _currentStep = "Prediction complete";
-      });
-      
+
+      _updateStatus(
+        "Complete",
+        displayText: "${weight.toStringAsFixed(1)}",
+        processing: false,
+      );
     } catch (e) {
       print('Error in image pipeline: $e');
-      setState(() {
-        _weightDisplay = "Error";
-        _currentStep = "Processing failed: ${e.toString()}";
-      });
-    } finally {
-      setState(() {
-        _isProcessing = false;
-      });
+      _updateStatus(
+        "Processing failed",
+        displayText: "Error",
+        processing: false,
+      );
     }
-  }
-
-  Float32List _preprocessImageForWeightModel(img.Image image) {
-    // Resize image to model input size (224x224)
-    final resizedImage = img.copyResize(image, width: 224, height: 224);
-    
-    // Convert to Float32List with normalization (0-1)
-    Float32List imageAsList = Float32List(224 * 224 * 3);
-    
-    int index = 0;
-    for (int y = 0; y < 224; y++) {
-      for (int x = 0; x < 224; x++) {
-        final pixel = resizedImage.getPixel(x, y);
-        imageAsList[index++] = img.getRed(pixel) / 255.0;
-        imageAsList[index++] = img.getGreen(pixel) / 255.0;
-        imageAsList[index++] = img.getBlue(pixel) / 255.0;
-      }
-    }
-    
-    return imageAsList;
   }
 
   @override
   void dispose() {
-    // Note: Add dispose method to models if needed
+    _yolov8Processor.dispose();
     super.dispose();
   }
 
-  void onPressed() {}
+  void _updateStatus(String step, {String? displayText, bool? processing}) {
+    setState(() {
+      _currentStep = step;
+      if (displayText != null) _weightDisplay = displayText;
+      if (processing != null) _isProcessing = processing;
+    });
+  }
 
   void backOnPressed(BuildContext context) {
     Navigator.pop(context);

@@ -5,6 +5,7 @@ import 'package:cambing_thesis/pages/history/historyScreen.dart';
 import 'package:cambing_thesis/pages/weight/weightScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 
 class Home extends StatelessWidget {
   const Home({super.key, required this.camera});
@@ -15,11 +16,25 @@ class Home extends StatelessWidget {
 
   }
 
-  void weightOnPressed(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => Weightscreen(camera: camera,))
-    );
+  Future<void> weightOnPressed(BuildContext context) async {
+    // Open gallery to pick an image
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      // Navigate to weight screen with the selected image
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Weightscreen(
+              camera: camera,
+              imagePath: image.path,
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void cameraOnPressed(BuildContext context) {

@@ -1,0 +1,38 @@
+import 'dart:typed_data';
+import 'package:image/image.dart' as img;
+
+/// Preprocessing helper for ResNet model
+/// Takes the YOLOv8 segmented image and prepares it for weight prediction
+class ResNetPreprocessor {
+  final int targetWidth;
+  final int targetHeight;
+
+  ResNetPreprocessor({
+    required this.targetWidth,
+    required this.targetHeight,
+  });
+
+  Float32List preprocess(img.Image segmentedImage) {
+    // Resize to ResNet input size (e.g., 224x224)
+    final resized = img.copyResize(
+      segmentedImage,
+      width: targetWidth,
+      height: targetHeight,
+    );
+
+    // Create flat tensor with RGB values normalized to [0,1]
+    final tensor = Float32List(targetWidth * targetHeight * 3);
+    int index = 0;
+
+    for (int y = 0; y < targetHeight; y++) {
+      for (int x = 0; x < targetWidth; x++) {
+        final pixel = resized.getPixel(x, y);
+        tensor[index++] = pixel.r / 255.0; // Red
+        tensor[index++] = pixel.g / 255.0; // Green
+        tensor[index++] = pixel.b / 255.0; // Blue
+      }
+    }
+
+    return tensor;
+  }
+}

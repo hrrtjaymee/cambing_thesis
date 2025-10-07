@@ -2,7 +2,6 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cambing_thesis/core/theme/colors.dart';
-import 'package:cambing_thesis/core/theme/text_styles.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:cambing_thesis/pages/weight/weightScreen.dart';
@@ -281,7 +280,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha:0.5),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
