@@ -19,6 +19,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
   final ImagePicker _picker = ImagePicker();
+  XFile? _capturedImage; // Store the captured image
 
   @override
   void initState() {
@@ -30,14 +31,21 @@ class TakePictureScreenState extends State<TakePictureScreen> {
       DeviceOrientation.landscapeRight,
     ]);
 
-    // create a CameraController.
+    // create a CameraController
     _controller = CameraController(
       widget.camera,
       ResolutionPreset.medium,
+      enableAudio: false,
     );
 
-    // initialize the controller. 
-    _initializeControllerFuture = _controller.initialize();
+    // initialize the controller and lock capture to landscape
+    _initializeControllerFuture = _controller.initialize().then((_) {
+      if (mounted) {
+        setState(() {});
+        // Lock to landscapeLeft to match how you're holding the device
+        _controller.lockCaptureOrientation(DeviceOrientation.landscapeLeft);
+      }
+    });
   }
 
   @override
@@ -63,7 +71,12 @@ class TakePictureScreenState extends State<TakePictureScreen> {
       
       if (!mounted) return;
       
-      // Show confirmation dialog
+      // Store the captured image and freeze the screen
+      setState(() {
+        _capturedImage = image;
+      });
+      
+      // Show confirmation dialog on top of the frozen image
       _showConfirmationDialog(image);
       
     } catch (e) {
@@ -73,39 +86,54 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   }
 
   Future<void> _showConfirmationDialog(XFile image) async {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.8),
+      barrierColor: Colors.transparent, 
       builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          title: const Text(
-            'Confirm Photo',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: screenWidth * 0.65, // 45% of screen width for rectangular shape
+              minWidth: screenWidth * 0.50, // Minimum 35% to prevent too narrow
             ),
-          ),
-          content: const Text(
-            'Do you want to process this photo for goat weight analysis?',
-            style: TextStyle(fontSize: 16),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text(
-                'Cancel',
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 10), // Reduce vertical padding
+              titlePadding: const EdgeInsets.fromLTRB(24, 16, 24, 8), // Reduce title padding
+              actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 12), // Reduce actions padding
+              title: const Text(
+                'Confirm Photo',
                 style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18, // Slightly smaller font
                 ),
               ),
-              onPressed: () {
-                Navigator.of(context).pop();
+              content: const Text(
+                'Process this photo for weight analysis?',
+                style: TextStyle(fontSize: 14), // Smaller font and shorter text
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text(
+                    'Retake',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 16,
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
                 File(image.path).deleteSync();
+                // Clear the captured image to resume camera preview
+                setState(() {
+                  _capturedImage = null;
+                });
               },
             ),
             ElevatedButton(
@@ -146,6 +174,8 @@ class TakePictureScreenState extends State<TakePictureScreen> {
               },
             ),
           ],
+            ),
+          ),
         );
       },
     );
@@ -206,16 +236,23 @@ class TakePictureScreenState extends State<TakePictureScreen> {
           if (snapshot.connectionState == ConnectionState.done) {
             return Stack(
               children: [
+                // Show either camera preview or frozen captured image
                 Positioned.fill(
-                  child: CameraPreview(_controller),
+                  child: _capturedImage == null
+                      ? CameraPreview(_controller) // Live camera preview
+                      : Image.file(                // Frozen captured image
+                          File(_capturedImage!.path),
+                          fit: BoxFit.cover,
+                        ),
                 ),
                 
-                // Yellow bounding box overlay
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: BoundingBoxPainter(),
+                // Yellow bounding box overlay (only show when live preview)
+                if (_capturedImage == null)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: BoundingBoxPainter(),
+                    ),
                   ),
-                ),
                 
                 // Upload from gallery button (centered at bottom)
                 Positioned(
