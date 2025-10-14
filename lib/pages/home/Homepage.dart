@@ -17,23 +17,27 @@ class Home extends StatelessWidget {
   }
 
   Future<void> weightOnPressed(BuildContext context) async {
+    print('📸 Gallery picker opened from homepage');
     // Open gallery to pick an image
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     
     if (image != null) {
-      // Navigate to weight screen with the selected image
+      print('✅ Image selected: ${image.path}');
+      // Navigate to processing screen (shows loading screen while processing)
       if (context.mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => Weightscreen(
+            builder: (context) => WeightProcessingScreen(
               camera: camera,
               imagePath: image.path,
             ),
           ),
         );
       }
+    } else {
+      print('❌ No image selected');
     }
   }
 

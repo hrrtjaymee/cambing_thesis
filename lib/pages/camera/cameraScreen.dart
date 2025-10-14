@@ -161,13 +161,13 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                   DeviceOrientation.landscapeRight,
                 ]);
                 
-                // Navigate to weight screen with image path
+                // Navigate to processing screen (shows loading screen)
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => Weightscreen(
+                    builder: (context) => WeightProcessingScreen(
                       camera: widget.camera,
-                      imagePath: image.path, // Pass the image path
+                      imagePath: image.path,
                     ),
                   ),
                 );
@@ -193,13 +193,13 @@ class TakePictureScreenState extends State<TakePictureScreen> {
           DeviceOrientation.landscapeRight,
         ]);
         
-        // Navigate to weight screen with selected image
+        // Navigate to processing screen (shows loading screen)
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => Weightscreen(
+            builder: (context) => WeightProcessingScreen(
               camera: widget.camera,
-              imagePath: image.path, // Pass the image path
+              imagePath: image.path,
             ),
           ),
         );
