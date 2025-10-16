@@ -1,4 +1,5 @@
 import 'package:cambing_thesis/core/theme/colors.dart';
+import 'package:cambing_thesis/core/theme/text_styles.dart';
 import 'package:cambing_thesis/pages/camera/cameraScreen.dart';
 import 'package:cambing_thesis/pages/history/historyScreen.dart';
 import 'package:cambing_thesis/pages/weight/weightModel.dart';
@@ -102,7 +103,7 @@ class _WeightScreenState extends State<Weightscreen> {
               flex: 55,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
                 child: _processedImage != null
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(16),
@@ -125,10 +126,10 @@ class _WeightScreenState extends State<Weightscreen> {
             
             // Bottom section - weight display and actions (45% of available space)
             Expanded(
-              flex: 45,
+              flex: 65,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   mainAxisSize: MainAxisSize.min,
@@ -136,25 +137,16 @@ class _WeightScreenState extends State<Weightscreen> {
                     // Weight display section
                     Column(
                       children: [
-                        Text(
+                        const Text(
                           "Your goat weighs",
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[700],
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: AppTextStyles.weight_heading
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         Column(
                           children: [
                             Text(
                               _weightDisplay,
-                              style: const TextStyle(
-                                fontSize: 64,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFFFA500), // Orange/yellow color
-                                height: 1.0,
-                              ),
+                              style: AppTextStyles.weight_value,
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -221,7 +213,7 @@ class _WeightScreenState extends State<Weightscreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         // Save button
                         TextButton(
                           onPressed: _saveWeight,
@@ -371,17 +363,18 @@ class _WeightProcessingScreenState extends State<WeightProcessingScreen> {
       // Ensure loading screen is visible for at least a moment
       await Future.delayed(const Duration(milliseconds: 500));
       
-      // Load models
-      print('📦 Loading YOLOv8 model...');
-      await _yolov8Processor.loadModel();
-      print('✅ YOLOv8 model loaded');
+      // Check if image already has metadata (already processed)
+      print('🔍 Checking image metadata...');
+      final metadata = await ImageMetadataHelper.getMetadata(widget.imagePath);
+      final isAlreadySegmented = metadata?['isSegmented'] == true;
+      final existingWeight = metadata?['weight'];
       
-      print('📦 Loading weight prediction model...');
-      _weightModel = GoatWeightModel();
-      await _weightModel!.loadModel();
-      print('✅ Weight model loaded');
-
-      // Load image
+      if (isAlreadySegmented) {
+        print('✅ Image already segmented! Skipping YOLOv8...');
+        print('   Found weight in metadata: $existingWeight kg');
+      }
+      
+      // Load image first
       print('🖼️ Loading image from ${widget.imagePath}');
       final imageBytes = await File(widget.imagePath).readAsBytes();
       final originalImage = img.decodeImage(imageBytes);
@@ -392,22 +385,42 @@ class _WeightProcessingScreenState extends State<WeightProcessingScreen> {
       }
       print('✅ Image loaded: ${originalImage.width}x${originalImage.height}');
 
-      // YOLOv8 segmentation
-      print('🔍 Running YOLOv8 segmentation...');
-      final segmentedImage = await _yolov8Processor.processImage(originalImage);
-
-      if (segmentedImage == null) {
-        print('❌ No goat detected in image');
-        _navigateToResult(null, null, error: "No goat detected");
-        return;
-      }
-      print('✅ Segmentation complete');
+      img.Image imageForWeightPrediction;
       
-      segmentedImageResult = segmentedImage;
+      // If already segmented, skip YOLOv8 and use the image directly
+      if (isAlreadySegmented) {
+        print('⏭️ Skipping YOLOv8 segmentation (already processed)');
+        imageForWeightPrediction = originalImage;
+        segmentedImageResult = originalImage;
+      } else {
+        // Load YOLOv8 model and perform segmentation
+        print('� Loading YOLOv8 model...');
+        await _yolov8Processor.loadModel();
+        print('✅ YOLOv8 model loaded');
+        
+        print('�🔍 Running YOLOv8 segmentation...');
+        final segmentedImage = await _yolov8Processor.processImage(originalImage);
+
+        if (segmentedImage == null) {
+          print('❌ No goat detected in image');
+          _navigateToResult(null, null, error: "No goat detected");
+          return;
+        }
+        print('✅ Segmentation complete');
+        
+        imageForWeightPrediction = segmentedImage;
+        segmentedImageResult = segmentedImage;
+      }
+      
+      // Load weight prediction model
+      print('📦 Loading weight prediction model...');
+      _weightModel = GoatWeightModel();
+      await _weightModel!.loadModel();
+      print('✅ Weight model loaded');
 
       // Preprocess for ResNet
       print('⚙️ Preprocessing for weight prediction...');
-      final preprocessedData = _resnetPreprocessor.preprocess(segmentedImage);
+      final preprocessedData = _resnetPreprocessor.preprocess(imageForWeightPrediction);
       print('✅ Preprocessing complete');
 
       // Predict weight
@@ -431,6 +444,7 @@ class _WeightProcessingScreenState extends State<WeightProcessingScreen> {
       MaterialPageRoute(
         builder: (context) => Weightscreen(
           camera: widget.camera,
+          imagePath: widget.imagePath, // Pass the image path for retry functionality
           predictedWeight: weight,
           segmentedImage: segmentedImage,
         ),

@@ -23,6 +23,13 @@ class AppTextStyles {
     color: AppColors.foreground
   );
 
+  static const appbar = TextStyle(
+    fontFamily: 'DM Sans',
+    fontSize: 16,
+    fontWeight: FontWeight.normal,
+    color: AppColors.foreground
+  );
+
   static const weight_heading = TextStyle(
     fontFamily: 'League Spartan',
     fontSize: 39,
