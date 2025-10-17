@@ -20,6 +20,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   late Future<void> _initializeControllerFuture;
   final ImagePicker _picker = ImagePicker();
   XFile? _capturedImage; // Store the captured image
+  FlashMode _currentFlashMode = FlashMode.off;
 
   @override
   void initState() {
@@ -34,7 +35,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
     // create a CameraController
     _controller = CameraController(
       widget.camera,
-      ResolutionPreset.medium,
+      ResolutionPreset.veryHigh,
       enableAudio: false,
     );
 
@@ -65,6 +66,10 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   Future<void> _takePicture() async {
     try {
       await _initializeControllerFuture;
+      
+      // Lock focus and exposure before taking the picture
+      await _controller.setFocusMode(FocusMode.locked);
+      await _controller.setExposureMode(ExposureMode.locked);
       
       // take a picture and get the file `image`where it was saved.
       final image = await _controller.takePicture();
@@ -209,6 +214,47 @@ class TakePictureScreenState extends State<TakePictureScreen> {
     }
   }
 
+  Future<void> _toggleFlash() async {
+    try {
+      // Cycle through flash modes: off -> auto -> always -> torch -> off
+      FlashMode newFlashMode;
+      switch (_currentFlashMode) {
+        case FlashMode.off:
+          newFlashMode = FlashMode.auto;
+          break;
+        case FlashMode.auto:
+          newFlashMode = FlashMode.always;
+          break;
+        case FlashMode.always:
+          newFlashMode = FlashMode.torch;
+          break;
+        case FlashMode.torch:
+          newFlashMode = FlashMode.off;
+          break;
+      }
+      
+      await _controller.setFlashMode(newFlashMode);
+      setState(() {
+        _currentFlashMode = newFlashMode;
+      });
+    } catch (e) {
+      print('Error toggling flash: $e');
+    }
+  }
+
+  IconData _getFlashIcon() {
+    switch (_currentFlashMode) {
+      case FlashMode.off:
+        return Icons.flash_off;
+      case FlashMode.auto:
+        return Icons.flash_auto;
+      case FlashMode.always:
+        return Icons.flash_on;
+      case FlashMode.torch:
+        return Icons.flashlight_on;
+    }
+  }
+
   Future<void> _goBack() async {
     // Restore portrait orientation before navigating back
     await SystemChrome.setPreferredOrientations([
@@ -239,7 +285,26 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                 // Show either camera preview or frozen captured image
                 Positioned.fill(
                   child: _capturedImage == null
-                      ? CameraPreview(_controller) // Live camera preview
+                      ? GestureDetector(
+                          onTapDown: (TapDownDetails details) async {
+                            // Calculate the tap position relative to the preview
+                            final RenderBox renderBox = context.findRenderObject() as RenderBox;
+                            final Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                            
+                            // Normalize the tap position to [0, 1] range
+                            final double x = localPosition.dx / renderBox.size.width;
+                            final double y = localPosition.dy / renderBox.size.height;
+                            
+                            // Set focus point
+                            try {
+                              await _controller.setFocusPoint(Offset(x, y));
+                              await _controller.setExposurePoint(Offset(x, y));
+                            } catch (e) {
+                              print('Error setting focus: $e');
+                            }
+                          },
+                          child: CameraPreview(_controller), // Live camera preview
+                        )
                       : Image.file(                // Frozen captured image
                           File(_capturedImage!.path),
                           fit: BoxFit.cover,
@@ -257,7 +322,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                 // Upload from gallery button (centered at bottom)
                 Positioned(
                   bottom: screenHeight * 0.15,
-                  right: screenWidth * 0.03,
+                  right: screenWidth * 0.025,
                   child: Center(
                     child: ElevatedButton.icon(
                       onPressed: _pickFromGallery,
@@ -309,7 +374,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                 
                 // Back button
                 Positioned(
-                  top: screenHeight * 0.06,
+                  top: screenHeight * 0.001,
                   left: screenWidth * 0.05,
                   child: SafeArea(
                     child: GestureDetector(
@@ -323,6 +388,31 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                         child: const Icon(
                           Icons.arrow_back,
                           color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // Flash button (top right, parallel to back button)
+                Positioned(
+                  top: screenHeight * 0.001,
+                  right: screenWidth * 0.05,
+                  child: SafeArea(
+                    child: GestureDetector(
+                      onTap: _toggleFlash,
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha:0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _getFlashIcon(),
+                          color: _currentFlashMode == FlashMode.off 
+                              ? Colors.white 
+                              : Colors.yellow,
                           size: 24,
                         ),
                       ),
@@ -356,8 +446,8 @@ class BoundingBoxPainter extends CustomPainter {
 
     // Calculate bounding box dimensions (positioned to the left)
     final double boxWidth = size.width * 0.65;
-    final double boxHeight = size.height * 0.8;
-    final double left = size.width * 0.05; // Move to left (5% from left edge)
+    final double boxHeight = size.height * 0.7;
+    final double left = size.width * 0.08; // Move to left (5% from left edge)
     final double top = (size.height - boxHeight) / 2;
     
     // Draw the main rectangle with dashed lines
