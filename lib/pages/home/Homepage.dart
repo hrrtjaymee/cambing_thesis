@@ -70,9 +70,9 @@ class Home extends StatelessWidget {
           children: [
             SizedBox(height: screenHeight * 0.15),
             Image.asset("assets/images/logo-name.png", width: screenWidth * 0.85,),
-            const Text(
+            Text(
               "Know your goat's mass in a snap.",
-              style: AppTextStyles.subheading),
+              style: AppTextStyles.subheading.copyWith(decoration: TextDecoration.none)),
             SizedBox(height: screenHeight * 0.3),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
