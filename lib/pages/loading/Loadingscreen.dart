@@ -48,7 +48,7 @@ class _LoadingscreenState extends State<Loadingscreen> {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const SizedBox(height: 100,),
+        const SizedBox(height: 70,),
         logo,
         const Text("Did You Know?", style: AppTextStyles.trivia_heading, textAlign: TextAlign.center),
         Padding(

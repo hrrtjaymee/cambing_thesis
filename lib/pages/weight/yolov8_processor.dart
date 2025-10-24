@@ -6,8 +6,7 @@ import 'package:flutter/foundation.dart';
 class YOLOv8Processor {
   static const String _modelPath = 'assets/models/yolov8x-seg_float32.tflite';
   static const int inputSize = 640;
-  
-  // YOLOv8 default parameters
+
   static const double confThreshold = 0.25;  // Confidence threshold
   static const double iouThreshold = 0.45;   // IoU threshold for NMS
   static const int maxDetections = 300;      // Maximum detections to keep
@@ -60,7 +59,7 @@ class YOLOv8Processor {
     final origW = image.width;
     final origH = image.height;
     final target = inputSize;
-    // Use the ratio that makes the LARGER dimension fit in target
+  
     final ratio = math.min(target / origW, target / origH);
 
     final newW = (origW * ratio).round();
@@ -208,7 +207,6 @@ class YOLOv8Processor {
         final imgY = y1 + dy;
         
         if (imgX >= 0 && imgX < originalImage.width && imgY >= 0 && imgY < originalImage.height) {
-          // Check if this pixel is part of the segmentation mask (threshold > 0.5 = 128)
           final maskPixel = objectMask.getPixel(dx, dy);
           if (maskPixel.r > 128) {
             overlayPixels++;
@@ -303,7 +301,7 @@ class YOLOv8Processor {
     for (int y = 0; y < protoH; y++) {
       for (int x = 0; x < protoW; x++) {
         final maskVal = maskFloat[y * protoW + x];
-        final v = maskVal > 0.5 ? 255 : 0;
+        final v = maskVal > 0.4 ? 255 : 0;
         maskTiny.setPixelRgba(x, y, v, v, v, 255);
       }
     }
@@ -404,10 +402,10 @@ class YOLOv8Processor {
         final origH = imgHeight.toDouble();
         // Choose ratio that makes the larger dimension fit in 640
         final ratio = math.min(inputSize / origW, inputSize / origH);
-        final newW = (origW * ratio).round();
-        final newH = (origH * ratio).round();
-        final padX = ((inputSize - newW) / 2).round();  // MUST round to match preprocessing
-        final padY = ((inputSize - newH) / 2).round();  // MUST round to match preprocessing
+        final newW = (origW * ratio);
+        final newH = (origH * ratio);
+        final padX = ((inputSize - newW) / 2);  // MUST round to match preprocessing
+        final padY = ((inputSize - newH) / 2);  // MUST round to match preprocessing
 
         // Convert from letterbox coordinates to original coordinates
         final cx = (xCenter - padX) / ratio;

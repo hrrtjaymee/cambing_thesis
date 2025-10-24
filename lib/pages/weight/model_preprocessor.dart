@@ -3,17 +3,17 @@ import 'package:image/image.dart' as img;
 
 /// Preprocessing helper for ResNet model
 /// Takes the YOLOv8 segmented image and prepares it for weight prediction
-class ResNetPreprocessor {
+class ModelPreprocessor {
   final int targetWidth;
   final int targetHeight;
 
-  ResNetPreprocessor({
+  ModelPreprocessor({
     required this.targetWidth,
     required this.targetHeight,
   });
 
   Float32List preprocess(img.Image segmentedImage) {
-    // Resize to ResNet input size (e.g., 224x224)
+    // Resize image
     final resized = img.copyResize(
       segmentedImage,
       width: targetWidth,

@@ -338,7 +338,7 @@ class WeightProcessingScreen extends StatefulWidget {
 
 class _WeightProcessingScreenState extends State<WeightProcessingScreen> {
   final YOLOv8Processor _yolov8Processor = YOLOv8Processor();
-  final ResNetPreprocessor _resnetPreprocessor = ResNetPreprocessor(
+  final ModelPreprocessor _modelPreprocessor = ModelPreprocessor(
     targetWidth: 224,
     targetHeight: 224,
   );
@@ -418,9 +418,9 @@ class _WeightProcessingScreenState extends State<WeightProcessingScreen> {
       await _weightModel!.loadModel();
       print('✅ Weight model loaded');
 
-      // Preprocess for ResNet
+      // Preprocess for weight prediction model
       print('⚙️ Preprocessing for weight prediction...');
-      final preprocessedData = _resnetPreprocessor.preprocess(imageForWeightPrediction);
+      final preprocessedData = _modelPreprocessor.preprocess(imageForWeightPrediction);
       print('✅ Preprocessing complete');
 
       // Predict weight

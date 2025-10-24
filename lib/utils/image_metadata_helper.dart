@@ -23,7 +23,7 @@ class ImageMetadataHelper {
   }
 
   /// Get metadata from an image
-  /// Returns a map with isSegmented, weight, processedDate, modelVersion
+  /// Returns a map with isSegmented, weight, processedDate
   static Future<Map<String, dynamic>?> getMetadata(String imagePath) async {
     try {
       final exif = await Exif.fromPath(imagePath);
@@ -41,18 +41,17 @@ class ImageMetadataHelper {
 
   /// Save metadata to an image file
   /// Marks image as segmented with weight and processing information
+  
   static Future<void> saveMetadata({
     required String imagePath,
     required bool isSegmented,
     required String weight,
-    String? modelVersion,
   }) async {
     try {
       final metadata = {
         'isSegmented': isSegmented,
         'weight': weight,
         'processedDate': DateTime.now().toIso8601String(),
-        'modelVersion': modelVersion ?? 'yolov8x-seg',
         'appVersion': '1.0.0',
       };
 
@@ -89,38 +88,5 @@ class ImageMetadataHelper {
     }
   }
 
-  /// Copy EXIF data from one image to another
-  /// Useful for preserving metadata when processing images
-  static Future<void> copyMetadata({
-    required String sourcePath,
-    required String destPath,
-  }) async {
-    try {
-      final sourceExif = await Exif.fromPath(sourcePath);
-      final destExif = await Exif.fromPath(destPath);
 
-      // Copy UserComment (our custom metadata)
-      final userComment = await sourceExif.getAttribute('UserComment');
-      if (userComment != null) {
-        await destExif.writeAttribute('UserComment', userComment);
-      }
-
-      await sourceExif.close();
-      await destExif.close();
-    } catch (e) {
-      print('Error copying metadata: $e');
-    }
-  }
-
-  /// Remove metadata from an image
-  /// Useful for clearing segmentation markers
-  static Future<void> removeMetadata(String imagePath) async {
-    try {
-      final exif = await Exif.fromPath(imagePath);
-      await exif.writeAttribute('UserComment', '');
-      await exif.close();
-    } catch (e) {
-      print('Error removing metadata: $e');
-    }
-  }
 }

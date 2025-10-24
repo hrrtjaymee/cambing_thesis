@@ -15,7 +15,6 @@ await ImageMetadataHelper.saveMetadata(
   imagePath: filePath,
   isSegmented: true,
   weight: _weightDisplay,
-  modelVersion: 'yolov8x-seg',
 );
 ```
 
@@ -23,7 +22,6 @@ await ImageMetadataHelper.saveMetadata(
 - `isSegmented`: Boolean flag (true/false)
 - `weight`: Weight value (e.g., "20.2")
 - `processedDate`: ISO timestamp
-- `modelVersion`: "yolov8x-seg"
 - `appVersion`: "1.0.0"
 
 ### 2. **When Loading Images** (`_processImagePipeline()`)
@@ -120,7 +118,6 @@ await ImageMetadataHelper.saveMetadata(
   imagePath: filePath,
   isSegmented: true,
   weight: "20.2",
-  modelVersion: "yolov8x-seg",
 );
 ```
 
@@ -168,7 +165,6 @@ Metadata saved to /path/to/image.jpg: {
   isSegmented: true,
   weight: 20.2,
   processedDate: 2025-10-11T14:30:52.123Z,
-  modelVersion: yolov8x-seg,
   appVersion: 1.0.0
 }
 ```
