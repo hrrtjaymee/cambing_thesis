@@ -2,10 +2,14 @@ import 'package:cambing_thesis/pages/home/Homepage.dart';
 import 'package:cambing_thesis/pages/splash/Splashscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:cambing_thesis/core/utils/fps_monitor.dart';
 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Start FPS monitoring in debug mode
+  FpsMonitor().start();
 
   // Initialize cameras with error handling
   try {

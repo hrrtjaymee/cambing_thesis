@@ -337,10 +337,11 @@ class WeightProcessingScreen extends StatefulWidget {
 }
 
 class _WeightProcessingScreenState extends State<WeightProcessingScreen> {
-  final YOLOv8Processor _yolov8Processor = YOLOv8Processor();
+  final YOLOv8Segmentation _yolov8Processor = YOLOv8Segmentation();
   final ModelPreprocessor _modelPreprocessor = ModelPreprocessor(
     targetWidth: 224,
     targetHeight: 224,
+    modelType: PreprocessingModel.resnet,
   );
   GoatWeightModel? _weightModel;
 

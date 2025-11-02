@@ -5,10 +5,11 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 /// Takes preprocessed segmented image (224x224x3) and predicts weight in kg
 class GoatWeightModel {
   // Update this path to match your actual model file name in assets/models/
-  static const String _modelPath = 'assets/models/test_model.tflite';
+  static const String _modelPath = 'assets/models/resnet-1.tflite';
   
   Interpreter? _interpreter;
   bool _isModelLoaded = false;
+  final _maxWeight = 55.0;
 
   /// Load the ResNet weight prediction model
   Future<void> loadModel() async {
@@ -32,9 +33,11 @@ class GoatWeightModel {
 
   /// Predict goat weight from preprocessed segmented image
   /// 
-  /// Input: Float32List from ResNetPreprocessor
+  /// Input: Float32List from ModelPreprocessor
   ///        - Shape: [1, 224, 224, 3] flattened to 150,528 elements
-  ///        - Values: RGB normalized to [0, 1]
+  ///        - Values: RGB normalized based on model type
+  ///          - ResNet: [0, 1]
+  ///          - MobileNetV2: [-1, 1]
   /// 
   /// Output: Weight in kilograms (float)
   double predict(Float32List input, List<int> inputShape) {
@@ -44,66 +47,34 @@ class GoatWeightModel {
     }
 
     try {
-      // Reshape flat Float32List to 4D tensor [1, 224, 224, 3]
-      final reshapedInput = _reshapeInput(input, inputShape);
+      // Verify input size matches expected shape
+      final expectedSize = inputShape.reduce((a, b) => a * b);
+      if (input.length != expectedSize) {
+        print('⚠️ Warning: Input size ${input.length} != expected $expectedSize');
+      }
+
+      // Reshape input for TensorFlow Lite (wraps Float32List in proper shape)
+      final inputTensor = input.reshape(inputShape);
       
-      // Allocate output buffer with proper shape [1, 1]
-      final output = List.generate(1, (_) => List.filled(1, 0.0));
+      // Allocate output buffer
+      final output = List.filled(1, 0.0).reshape([1, 1]);
 
       // Run inference
-      _interpreter!.run(reshapedInput, output);
+      _interpreter!.run(inputTensor, output);
 
-      final predictedWeight = output[0][0];
-      print('✅ Predicted weight: ${predictedWeight.toStringAsFixed(2)} kg');
+      final predictedWeight = output[0][0] * _maxWeight;
       
-      return predictedWeight;
+      // Truncate to 1 decimal place without rounding
+      final truncated = (predictedWeight * 10).truncateToDouble() / 10;
+      
+      print('✅ Predicted weight: ${truncated.toStringAsFixed(1)} kg');
+      
+      return truncated;
       
     } catch (e) {
       print('❌ Weight prediction error: $e');
       return 0.0;
     }
-  }
-
-  /// Reshape flat Float32List to 4D tensor for ResNet input
-  /// Converts [150528] → [1, 224, 224, 3]
-  List<List<List<List<double>>>> _reshapeInput(
-    Float32List flatInput,
-    List<int> shape,
-  ) {
-    final batch = shape[0];      // 1
-    final height = shape[1];     // 224
-    final width = shape[2];      // 224
-    final channels = shape[3];   // 3
-
-    // Verify input size matches expected shape
-    final expectedSize = batch * height * width * channels;
-    if (flatInput.length != expectedSize) {
-      print('⚠️ Warning: Input size ${flatInput.length} != expected $expectedSize');
-    }
-
-    // Create 4D tensor structure
-    final reshaped = List.generate(
-      batch,
-      (b) => List.generate(
-        height,
-        (h) => List.generate(
-          width,
-          (w) => List.generate(
-            channels,
-            (c) {
-              // Calculate flat index: [b][h][w][c]
-              final index = b * height * width * channels +
-                  h * width * channels +
-                  w * channels +
-                  c;
-              return flatInput[index];
-            },
-          ),
-        ),
-      ),
-    );
-
-    return reshaped;
   }
 
   /// Get model information (useful for debugging)
